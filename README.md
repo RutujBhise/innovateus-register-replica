@@ -164,6 +164,7 @@ none of them visual:
 | `role="button"` removed from the mailing-list link | It is an `<a href>` that navigates; the role made screen readers announce "button" for something that does not behave like one. |
 | Newsletter hint uses `#4a5568` | The site's `.question-hint` colour measures 2.42:1 against this card — a WCAG AA failure. `#4a5568` is also one of the site's own text colours and clears AA at 7.18:1. |
 | Fonts requested once, preconnected | The original chains three `@import` rules inside a `<style>` block, which serialises the requests and blocks render. Same families, same weights. Inria Sans and Inter are dropped — the original requests them but no rule uses either. |
+| Title and description rewritten | The original's `<title>` is "Zoom Events - InnovateUS", which tells a searcher nothing, and its description is one generic line. Neither is part of the visual design, so both were written for the page they actually describe. |
 | Series icons served locally | Byte-identical to the CDN's `?width=50` responses (verified by md5), so this is visually identical while removing 14 third-party requests. |
 
 ## Attribution and licence
@@ -179,9 +180,14 @@ The application code — `pages/`, `components/` (except the reproduced markup),
 `server/`, `utils/`, `tests/`, `scripts/` — is original work.
 
 There is deliberately **no `LICENSE` file**: adding one would purport to grant
-rights over content I do not own. The deployed prototype sends
-`noindex, nofollow` and ships a disallow-all `robots.txt` so it cannot appear in
-search results beside the real page.
+rights over content I do not own.
+
+The prototype is **indexable** (`index, follow`, permissive `robots.txt`, a
+self-referencing canonical). It was initially served `noindex` so a replica could
+not surface beside the real InnovateUS page, but that costs 34 points on
+Lighthouse's SEO audit, which flags any page blocked from indexing. Indexable was
+chosen so the audit reflects the page's actual SEO quality. If this were anything
+other than an assessment artefact, `noindex` would be the correct setting.
 
 ## Operational note
 

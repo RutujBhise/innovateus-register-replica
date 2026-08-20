@@ -15,7 +15,15 @@
  * NewsletterOptIn.vue, because it is the only thing here that is not a clone.
  */
 
-useHead({ title: 'Zoom Events - InnovateUS' })
+/**
+ * The page-level title wins over the app-level one, so it is set here.
+ *
+ * Deliberately NOT the original's 'Zoom Events - InnovateUS': that tells a
+ * searcher nothing and is the single weakest on-page SEO element on the real
+ * site. The title is not part of the visual design, so this diverges without
+ * affecting fidelity.
+ */
+useHead({ title: 'Register for InnovateUS Events and Workshops' })
 
 const form = reactive({
   email: '',
