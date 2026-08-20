@@ -1,0 +1,4 @@
+# This is a take-home replica of innovate-us.org/register, not the real site.
+# It must never appear in search results alongside the original.
+User-agent: *
+Disallow: /

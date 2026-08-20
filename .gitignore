@@ -1,0 +1,15 @@
+# Secrets. .env.stub is intentionally NOT ignored: it holds no secret and is
+# what lets anyone clone this repo and exercise the submit path.
+.env
+.env.local
+
+node_modules
+.nuxt
+.output
+.vercel
+dist
+*.log
+
+# Verbatim copies of the original site's stylesheets, kept locally for
+# verification only. Third-party content with no licence to redistribute.
+_reference/

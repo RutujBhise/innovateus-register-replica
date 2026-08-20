@@ -1,0 +1,401 @@
+/* ==========================================================================
+   base.css
+   Global tokens + typography, transcribed verbatim from the authored
+   stylesheet inlined in <head> at https://innovate-us.org/register
+   Values are unchanged; only whitespace/grouping was reformatted.
+   ========================================================================== */
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root {
+  font-size: 16px;
+
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --blue-100: #bcd8f6;
+  --blue-600: #124d8f;
+  --dark-blue: #142941;
+  --blue-600-gradient: linear-gradient(90deg, #124d8f, #2b75c7);
+  --blue-600-gradient-hover: linear-gradient(90deg, #2b75c7, #124d8f);
+  --implementation: #124d8f;
+  --implementation-gradient: linear-gradient(90deg, #124d8f, #2b75c7);
+  --blue-500: #1d65b5;
+  --blue-400: #2b75c7;
+  --blue-400-gradient: linear-gradient(90deg, #1d65b5, #5796db);
+  --blue-300: #5796db;
+  --blue-050: #e4effc;
+  --blue-bg-gradient: linear-gradient(180deg, #e4effc, #bcd8f7);
+  --blue-lt-bg-gradient: linear-gradient(180deg, #fff, #e4effc);
+  --blue-bright: #0078fd;
+
+  --yellow-600: #d09006;
+  --yellow-600-gradient: linear-gradient(90deg, #d09006, #f9c011);
+  --solution: #d09006;
+  --solution-gradient: linear-gradient(90deg, #d09006, #f9c011);
+  --yellow-500: #efaf0d;
+  --yellow-400: #f9c011;
+  --yellow-400-gradient: linear-gradient(90deg, #f9c011, #ffdf6b);
+  --yellow-400-gradient-hover: linear-gradient(90deg, #fed75e, #f9c011);
+  --yellow-300: #fdce3e;
+  --yellow-200: #ffdf6b;
+  --yellow-050: #fff3d2;
+
+  --red-600: #9d0c1b;
+  --red-500: #bf1e2e;
+  --red-400: #d35046;
+  --red-500-gradient: linear-gradient(90deg, #9d0c1b, #d35046);
+  --problem: #bf1e2e;
+  --problem-gradient: linear-gradient(90deg, #9d0c1b, #d35046);
+  --red-050: #fee8e7;
+
+  --teal-600: #097261;
+  --teal-500: #189480;
+  --teal-400: #33af9a;
+  --teal-500-gradient: linear-gradient(90deg, #097261, #33af9a);
+  --evaluation: #189480;
+  --evaluation-gradient: linear-gradient(90deg, #097261, #33af9a);
+  --teal-050: #ddf3f0;
+
+  --artificial-intelligence: #cc4bc2;
+  --literacy: #f28500;
+  --literacy-gradient: linear-gradient(90deg, #d46e00, #f9a826);
+  --innovation-mindset: #1ccad8;
+
+  --neutral-300A: rgba(18, 42, 67, 0.49);
+  --neutral-600: #122a43;
+  --neutral-400: rgba(18, 42, 67, 0.7);
+  --light-grey-gradient: linear-gradient(180deg, #fff, #f3f4f6);
+  --dark-grey: #333;
+  --grey80: #33333380;
+  --blue-700: #1e3a5f;
+  --grey8: #888;
+  --grey3: #d4d4d4;
+}
+
+body {
+  color: var(--blue-600);
+  font-family: Libre Franklin, sans-serif;
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+p {
+  font-size: clamp(0.875rem, round(0.768rem + 0.286vw, 1px), 1rem);
+  margin-bottom: 1rem;
+}
+
+.lede {
+  font-family: Libre Franklin;
+}
+
+.subheader {
+  text-transform: uppercase;
+}
+
+ul {
+  padding-left: 1.25em;
+}
+
+li:not(:last-child) {
+  margin-bottom: 1rem;
+}
+
+.h1, .h2, .h3, .h4, .h5, .h6,
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 400;
+  line-height: 1.25;
+  margin: 0;
+}
+
+h1.small-title {
+  font-size: 2.4rem !important;
+}
+
+.h1, .h2, h1, h2 {
+  font-family: "DM Serif Display", georgia, serif;
+}
+
+.h3, .h4, .h5, h3, h4, h5, h6 {
+  font-family: "DM Serif Text", georgia, serif;
+}
+
+.h1, h1 {
+  font-size: clamp(2.25rem, round(0.911rem + 3.571vw, 1px), 3.813rem);
+  margin-top: 0;
+}
+
+.h2, h2 {
+  font-size: clamp(1.781rem, round(0.737rem + 2.786vw, 1px), 3rem);
+  margin-top: 0;
+}
+
+.h3, h3 {
+  font-size: clamp(1.438rem, round(0.58rem + 2.286vw, 1px), 2.438rem);
+}
+
+.h4, h4 {
+  font-size: clamp(1.313rem, round(0.777rem + 1.429vw, 1px), 1.938rem);
+}
+
+.h5, h5 {
+  font-size: clamp(1.125rem, round(0.75rem + 1vw, 1px), 1.563rem);
+}
+
+.h6, h6 {
+  font-size: 1.2rem;
+}
+
+h6 {
+  font-size: clamp(1.031rem, round(0.79rem + 0.643vw, 1px), 1.313rem);
+  margin-top: 1rem;
+}
+
+.lede {
+  font-size: clamp(1rem, round(0.786rem + 0.571vw, 1px), 1.25rem);
+}
+
+h6.lede {
+  font-size: 1rem;
+}
+
+.text_small, caption, small {
+  font-size: clamp(0.688rem, round(0.58rem + 0.286vw, 1px), 0.813rem);
+}
+
+.subheader {
+  font-size: clamp(0.75rem, round(0.536rem + 0.571vw, 1px), 1rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 85% !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Global form controls.
+ *
+ * Transcribed verbatim from the original's global stylesheet. These are easy to
+ * miss because the page's scoped rules override almost every declaration - but
+ * not all of them, and the leftovers are load-bearing:
+ *
+ *   select { height: 50px }        <- .custom-question-select sets no height, so
+ *                                     this is what makes every select 50px tall
+ *                                     rather than 48.8px from its line box.
+ *   ::placeholder { font-weight: 600 }
+ *                                 <- the scoped rule sets placeholder colour and
+ *                                     size but not weight, so placeholders are
+ *                                     semibold.
+ *   input[type=email] { box-sizing; width: 100% }
+ *                                 <- survives the scoped rule too.
+ * ------------------------------------------------------------------------- */
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--blue-050);
+  border: none;
+  border-radius: 8px;
+  color: var(--blue-600);
+  cursor: pointer;
+  font-size: 1rem;
+  height: 50px;
+  padding: 10px 30px 10px 10px;
+  transition: color 0.3s ease, background-color 0.3s ease,
+    border-bottom-color 0.3s ease;
+  width: 100%;
+}
+
+select::-ms-expand {
+  display: none;
+}
+
+input[type='email'],
+input[type='text'] {
+  background-color: var(--blue-050);
+  border: none;
+  border-radius: 0;
+  box-sizing: border-box;
+  color: var(--neutral-400);
+  display: inline-block;
+  font-size: 1rem;
+  margin: 0;
+  padding: 10px;
+  width: 100%;
+}
+
+::-moz-placeholder {
+  color: var(--grey8);
+  font-weight: 600;
+}
+
+::placeholder {
+  color: var(--grey8);
+  font-weight: 600;
+}
+
+.form button,
+input[type='submit'] {
+  border-radius: 8px;
+  border-style: none;
+}
+
+input[type='submit'] {
+  font-family: 'Libre Franklin';
+  margin-bottom: 1rem;
+  margin-top: 0.5rem;
+  text-transform: uppercase;
+}
+
+.mc-field-group {
+  padding-bottom: 1em;
+}
+
+/* ---------------------------------------------------------------------------
+ * Global button family.
+ *
+ * Transcribed verbatim from the original's global stylesheet. Same trap as the
+ * form controls above: register-page.css redefines .btn and .btn-small, and
+ * because it loads later it wins on the properties they share (border-radius,
+ * display, font-size, padding). But the declarations only present here still
+ * apply, and they are the visible ones:
+ *
+ *   .btn { text-transform: uppercase; letter-spacing: .015rem; line-height: 1;
+ *          white-space: nowrap }
+ *                             <- "Select all series" renders as "SELECT ALL
+ *                                SERIES", tracked out and never wrapped.
+ *   .btn-small { height: 37px; max-height: 37px }
+ *   .btn-medium { height: 48px; max-height: 48px }
+ *                             <- fixes button heights; register-page.css sets
+ *                                no height, so without these a .btn-small is
+ *                                34.4px instead of 37px.
+ *   .btn-medium, .btn-small { width: fit-content }
+ *
+ * Load order matters: this file must stay ahead of register-page.css.
+ * ------------------------------------------------------------------------- */
+
+.btn,
+.wordmark:hover {
+  cursor: pointer;
+}
+
+.btn {
+  align-items: center;
+  border: none;
+  border-radius: 50px;
+  display: inline-flex;
+  flex-direction: row;
+  font-size: clamp(0.75rem, round(0.643rem + 0.286vw, 1px), 0.875rem);
+  font-weight: 500;
+  gap: 0.25rem;
+  justify-content: center;
+  letter-spacing: 0.015rem;
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.btn:disabled,
+.btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--blue-400);
+  outline-offset: 2px;
+}
+
+a.btn {
+  align-items: center;
+  border-radius: 50px;
+  display: flex;
+  flex-direction: row;
+  font-size: 0.8rem;
+  font-weight: 500;
+  gap: 0.25rem;
+  justify-content: center;
+  letter-spacing: 0.015rem;
+  margin: 0;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.btn-primary {
+  background: var(--blue-600-gradient);
+  color: #fff;
+}
+
+.btn-secondary {
+  background: var(--yellow-400-gradient);
+  color: #122a43;
+  text-transform: uppercase;
+}
+
+.btn-outlined {
+  background: #fff;
+  border: 1px solid var(--blue-600);
+  color: var(--blue-600);
+}
+
+.btn-text {
+  color: var(--blue-bright);
+}
+
+.btn-primary:hover {
+  background: var(--blue-600-gradient-hover);
+  cursor: pointer;
+  transition: all 1s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--yellow-400-gradient-hover);
+  cursor: pointer;
+  transition: all 1s ease;
+}
+
+.btn-outlined:hover {
+  background: #fff;
+  border: 1px solid var(--blue-bright);
+  color: var(--blue-bright);
+}
+
+.btn-outlined:hover,
+.btn-text:hover {
+  cursor: pointer;
+  transition: all 1s ease;
+}
+
+.btn-text:hover {
+  color: var(--blue-600);
+}
+
+.btn-small {
+  font-size: 0.8rem;
+  height: 37px;
+  max-height: 37px;
+}
+
+.btn-medium,
+.btn-small {
+  padding: 0 15px;
+  width: fit-content;
+}
+
+.btn-medium {
+  height: 48px;
+  max-height: 48px;
+}

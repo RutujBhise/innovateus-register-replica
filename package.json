@@ -1,0 +1,32 @@
+{
+  "name": "innovateus-register-replica",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "inspect": "node scripts/inspect-collection.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "stub": "node scripts/stub-directus.mjs",
+    "dev:stub": "nuxt dev --dotenv .env.stub",
+    "verify": "node scripts/verify-write-path.mjs",
+    "typecheck": "nuxt typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "nuxt": "^3.21.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.9",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0",
+    "vue-tsc": "^2.2.12"
+  },
+  "description": "Replica of the InnovateUS registration page with a weekly-newsletter opt-in persisted to Directus.",
+  "engines": {
+    "node": "22.x"
+  }
+}

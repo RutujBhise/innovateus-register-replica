@@ -1,0 +1,6 @@
+{
+  // Nuxt generates the real config during `nuxt prepare` (postinstall).
+  // Extending it gives editors and `nuxt typecheck` an entry point, and its
+  // include covers tests/ and server/ as well as the app.
+  "extends": "./.nuxt/tsconfig.json"
+}
