@@ -1,0 +1,852 @@
+================================================================================
+FULL PROCESS DOCUMENTATION
+InnovateUS registration page replica + weekly-newsletter opt-in
+Rutuj Bhise
+================================================================================
+
+The task's ground rules asked me to document which AI tools I used, why I picked
+them, how I prompted them, how I tested the results, and what technical
+decisions I made. PROCESS.md holds the 300-word summary that was asked for as a
+deliverable. This file is the full record behind it, written so that any claim in
+the short version can be checked against what actually happened.
+
+Live prototype : https://innovateus-register-replica.netlify.app/register
+Repository     : https://github.com/RutujBhise/innovateus-register-replica
+Directus row   : cw_intake id=52
+
+
+================================================================================
+1. TOOLING: WHAT I USED AND WHY
+================================================================================
+
+Primary tool: Claude Code (Anthropic, Opus 5), run as an agent with filesystem
+and browser access.
+
+WHY THAT TOOL RATHER THAN A CHAT LLM
+
+The difficulty in this task was not writing code. It was:
+  (a) discovering facts about a site I did not build, and
+  (b) proving that what I produced actually matched it.
+
+Both need execution, not text generation. A chat-only model can emit a Vue
+component that looks plausible; it cannot open the live page, measure it, run a
+test suite, POST to an API and read the response back. Specifically I needed a
+tool that could:
+
+  - read the original's stylesheets and JS bundles and search inside them
+  - drive a real browser to measure computed geometry on both the live site and
+    my replica, in the same session
+  - run a dev server, curl its endpoints, and read the responses
+  - run a test suite and a typechecker and see the failures
+  - talk to the Directus API and read the schema back
+
+Everything in this project that turned out to be non-obvious was found by
+executing something, not by reasoning about it. Several of my own confident
+conclusions were wrong and were only caught by running them (section 8).
+
+WHAT I DID NOT USE, AND WHY
+
+  - No UI component library or CSS framework. The requirement was to conform to
+    an existing design, and the original's own stylesheet is the most accurate
+    possible source. Introducing Tailwind or similar would have meant
+    re-deriving values that already existed.
+  - No scaffolding generator. The project is small and hand-configured.
+  - No @nuxt/test-utils. See section 6; this was a considered rejection, not an
+    oversight.
+  - I did not ask an AI to "make a registration form". I gave it the original's
+    markup and made it work from that, because the deliverable was fidelity to
+    a specific design, not a generic form.
+
+HOW I WORKED WITH IT
+
+I ran it in short, verified increments rather than long generations. My standing
+instruction was: one or two changes, then verify, then stop and report. When I
+let it run longer than that, it produced work that looked finished and was not —
+so the increments were a deliberate control, not caution for its own sake.
+
+I also repeatedly refused its first answer. The newsletter field, the error
+messages and the post-submit behaviour were all rejected on first attempt and
+redone (sections 4 and 7).
+
+
+================================================================================
+2. HOW I PROMPTED IT
+================================================================================
+
+Four prompting patterns did the actual work. They are worth naming because the
+results differ sharply depending on which one is used.
+
+--------------------------------------------------------------------------------
+2.1 SCHEMA-FIRST / DATA-FIRST, NOT CODE-FIRST
+--------------------------------------------------------------------------------
+
+Before any mapping code existed, I had it inspect the target rather than infer
+it. The instruction was, in effect: do not write the payload until you have read
+the collection's real field list.
+
+That mattered immediately. The Directus collection returns 403 to anonymous
+requests, so the schema was genuinely unknowable without the token. Rather than
+guess field names, we wrote a script (npm run inspect) that reads the token from
+.env and prints the field list while printing no secrets.
+
+It also produced the single most valuable discovery in the project. I asked it
+to read EXISTING ROWS in the collection to learn the conventions rather than
+invent them. That revealed that `workshops` holds Zoom event IDs running
+parallel to the titles in `workshop_series`, joined with "; ":
+
+    workshop_series : "AI in Public Health; AI for Public-Sector Procurement"
+    workshops       : "QYgwIYtBRyCPDLVtnJObIg; CTI09lxVQDKJhwb8AocicQ"
+
+Cross-referencing those IDs against the site's /api/catalog/series confirmed the
+mapping and the ordering. Nothing in the form's UI hints at this. Had I written
+the obvious payload, that field would have been null or wrong, and I would never
+have known.
+
+Reading other candidates' rows also showed where people slip: one had written
+state "Massachusetts" where the form's own options are two-letter codes; another
+had written gov_level "State" instead of the full "State or Provincial level";
+one left consent_at null while newsletter was true. Driving every value from the
+form's actual option list avoids all three.
+
+--------------------------------------------------------------------------------
+2.2 MEASURE, DON'T EYEBALL
+--------------------------------------------------------------------------------
+
+I explicitly refused "make it look similar" as an acceptance criterion. The
+instruction was: open the live page and mine at an identical viewport, run one
+identical measurement function in each, and compare a SHA-256 hash of the
+result.
+
+    hash( JSON.stringify({ every box, offset and computed style in the section }) )
+
+Identical hash, or it does not match. This is stricter than a screenshot diff
+because it also covers computed styles that do not show up visually until an
+interaction, and it produces a single yes/no rather than a judgement call.
+
+Six sections were verified this way:
+
+    header + partner banner   cd77284a…82e3    883 bytes
+    registration card         f865f413…7c5d  2,176 bytes
+    event series list         f07ce8a3…21db  3,354 bytes
+    register action row       6fc4a6fc…820d  1,219 bytes
+    footer                    f4bf378d…c0ce  8,331 bytes
+    page tail / DOM order     8bb89eab…4c3d  4,604 bytes
+
+The footer was additionally verified at 900px (crossing the 1024px breakpoint)
+and 600px (crossing 640px and the html{font-size:85%} rule). All hashes were
+re-verified against the deployed production build, not only the dev server, and
+re-verified after every subsequent change.
+
+This method caught three real defects that I would otherwise have shipped, all
+described in section 8.
+
+--------------------------------------------------------------------------------
+2.3 READ THEIR SOURCE INSTEAD OF GUESSING BEHAVIOUR
+--------------------------------------------------------------------------------
+
+Saved HTML cannot tell you how a page behaves. Twice I stopped it from
+guessing and made it read the original's JavaScript instead.
+
+First: do the nav dropdowns open on hover or on click? The CSS has :hover rules,
+which suggests hover. Attempts to test this in the browser failed because the
+live site's header does not hydrate under automation — clicks and hovers do
+nothing, so observation was impossible. So we fetched the component chunk
+(/_nuxt/B789qlOy.js) and read the bindings: onClick and onKeydown with
+tabindex="0", and no mouseenter or mouseover anywhere. Click-driven, definitively.
+That chunk also revealed it closes on a document click and has NO Escape
+handling.
+
+Second, and more importantly: I noticed while testing the real form that fields
+appeared which were not in the markup I had — a State/Province select, a
+"Country (Non US only)" text input, and a "level of government" select. In the
+saved HTML these are bare `<!---->` comments, because Vue renders an unmatched
+v-if as an empty comment node. So the markup told me three conditional fields
+existed and where they sat, but nothing about their contents or trigger
+conditions.
+
+Rather than invent them, we found the site's own runtime data:
+
+    https://innovate-us.org/registration-questions.json
+        — exact question titles, option arrays, required flags, min/max lengths,
+          including the 56-entry US state list as two-letter codes with
+          territories
+    https://innovate-us.org/api/catalog/series
+        — the 14 event series with their Zoom event IDs
+
+and read the trigger conditions out of the page's own chunk
+(/_nuxt/CZ78WoXq.js). That produced one finding I would not have guessed: the
+level-of-government question appears when the affiliation answer
+.toLowerCase().startsWith("yes") — a prefix test, not a check against specific
+options. So despite its label reading "If a government employee or consultant",
+it also appears for the third answer, "government-affiliated organization". I
+reproduced that behaviour rather than "correcting" it, and documented it.
+
+--------------------------------------------------------------------------------
+2.4 ADVERSARIAL PROMPTING AGAINST FINISHED WORK
+--------------------------------------------------------------------------------
+
+This is the pattern that found the most serious bug, and it is the one I would
+keep if I could keep only one.
+
+Once the submission endpoint was written and its tests were passing, I did not
+ask "is this good?" — that invites agreement. I asked a specific hostile
+question:
+
+    "How could this create two rows?"
+
+It found a real defect in its own just-written code. The retry logic treated
+every non-timeout fetch rejection as safe to retry. But Node's fetch rejects
+with the same TypeError: fetch failed for two very different situations:
+
+    nothing was sent            ECONNREFUSED, ENOTFOUND, EAI_AGAIN,
+                                UND_ERR_CONNECT_TIMEOUT
+    bytes were sent, then       ECONNRESET, EPIPE, UND_ERR_SOCKET,
+    the socket died             UND_ERR_HEADERS_TIMEOUT,
+                                ERR_STREAM_PREMATURE_CLOSE
+
+The second group can occur AFTER Directus has already committed the row. A load
+balancer resetting the connection post-commit would have been retried, creating a
+duplicate — in a collection shared with other candidates.
+
+Asking "how could this break?" got a real answer. Asking "does this look right?"
+would not have. I used the same framing later to review the whole project for
+weaknesses, which is where the acknowledged gaps in section 9 came from.
+
+
+================================================================================
+3. HOW I TESTED THE RESULTS
+================================================================================
+
+Four independent layers. The layering is deliberate: each catches a class of
+problem the others cannot.
+
+--------------------------------------------------------------------------------
+3.1 UNIT TESTS — 130 tests, 5 files, no browser, ~0.9s
+--------------------------------------------------------------------------------
+
+    tests/intakePayload.test.ts     (23)  the form-state -> Directus row mapper,
+                                          plus series data integrity
+    tests/validateIntake.test.ts    (36)  server-side validation, every closed
+                                          option set, all length limits
+    tests/submissionGuards.test.ts  (16)  rate limit and duplicate fingerprint,
+                                          driven with fake timers
+    tests/directusClient.test.ts    (28)  HTTP transport, retry classification,
+                                          timeout behaviour
+    tests/intakeResponse.test.ts    (27)  upstream failure -> visitor message,
+                                          including the information-leak test
+
+Run with: npm test
+
+An architectural constraint shaped this. server/api/intake.post.ts cannot be
+imported by a unit test at all: Nitro's useRuntimeConfig reads a Rollup virtual
+module that only exists during a Nitro build. Rather than stub globals (fragile,
+and asserts nothing about real behaviour) I extracted the transport and the
+error mapping into modules with no Nitro dependency. useRuntimeConfig is now
+called in exactly one place — the one file no test imports. The handler shrank
+from 261 lines to 143 and is thin plumbing.
+
+--------------------------------------------------------------------------------
+3.2 VERIFYING THE WRITE PATH WITHOUT WRITING (the constraint I imposed)
+--------------------------------------------------------------------------------
+
+I noticed early that cw_intake contains other candidates' submissions — five
+rows created the same morning, all @example.org addresses. I decided no test
+rows would be written to it: the reviewer sees that collection, and a trail of
+throwaway rows reads worse than one clean row. This directly conflicts with the
+brief's instruction to test with made-up emails, and I made the call knowingly.
+It is disclosed in PROCESS.md.
+
+That constraint forced better testing than I would otherwise have done:
+
+  1. A real node:http stub server stands in for Directus
+     (tests/helpers/stubDirectus.ts). Real sockets, real status codes. A mocked
+     fetch cannot reproduce a refused connection, a destroyed socket, or an
+     unanswered request — which is exactly what the retry logic turns on. msw
+     and nock were rejected for that reason.
+
+  2. One test asserts the COMPLETE outbound request — method, path,
+     Authorization header, and every field of the body deep-equalled against the
+     expected row. This assertion is the substitute for writing a real row.
+
+  3. A dryRun flag on the endpoint was considered and rejected. It would have
+     added a production-reachable branch that skips the write, while only
+     exercising the payload builder — already the best-covered file.
+
+  4. A standalone stub for browser end-to-end testing
+     (scripts/stub-directus.mjs, npm run stub + npm run dev:stub). dev:stub
+     loads .env.stub INSTEAD of .env, so the real token is not in the process
+     at all and an accidental real write is impossible. It supports
+     --fail=401|403|400|unique|409|429|503|500|timeout|reset and --delay, prints
+     every received payload, and flags empty required fields. The made-up-email
+     runs (rutuj+1@example.org and so on) were done here.
+
+     This is also a submission feature: anyone can clone the repo with no
+     credentials and exercise the whole submit path including every error
+     branch.
+
+  5. Three read-only probes against the real Directus (npm run verify). The key
+     one POSTs an empty object {}. Directus runs auth and permission checks
+     BEFORE payload validation, so the status is diagnostic and no row can be
+     created, because every required field is absent:
+
+         403  -> the token cannot create; the real submission would fail
+         400 FAILED_VALIDATION -> create permission confirmed, and the response
+              NAMES the required fields, which the script diffs against our
+              payload
+
+     Result: all 7 named fields present in our payload. That is an independent
+     cross-check of the mapper against the live schema, obtained without
+     writing. Running this before the real submission is what made the one-shot
+     submission safe.
+
+--------------------------------------------------------------------------------
+3.3 END-TO-END THROUGH THE REAL BROWSER, AGAINST THE STUB
+--------------------------------------------------------------------------------
+
+Driving the actual form, not the API:
+
+    payload vs schema     all 11 fields correct, both "; "-joined lists
+                          parallel, consent_at server-stamped
+    double submit         ONE POST reached upstream; the second returned the
+                          original id
+    upstream 401          visitor saw a generic 502 — no leak of the reason,
+                          code, or status
+    upstream timeout      6.03s then 503, with EXACTLY ONE attempt
+    empty submit          series error first, matching the original's order
+    missing fields        summary named them, all marked aria-invalid, focus
+                          moved
+    success               reference id shown, announced via role="status"
+
+--------------------------------------------------------------------------------
+3.4 TYPECHECK, BUILD, AND PRODUCTION VERIFICATION
+--------------------------------------------------------------------------------
+
+    npm run typecheck     nuxt typecheck, clean
+    npm run build         production build succeeds
+
+On the deployed site: /register returns 200 to an anonymous request; / redirects
+to /register; the server route is live and returns field-level validation
+errors; Cache-Control: no-store on /api/**; NO stack traces or local file paths
+in production error responses (dev leaks them, production does not); no console
+errors; and all four design hashes match the production build.
+
+One honest gap: :focus styles cannot be triggered under browser automation —
+document.hasFocus() is false, so el.focus() sets activeElement but
+el.matches(':focus') stays false and no ring computes. Focus styling was
+therefore verified by comparing the :hover/:focus RULE DECLARATIONS from both
+CSSOMs, normalising away the Vue scope attributes: 13 of 13 state rules matched.
+The rendered ring was never visually confirmed by automation and was checked by
+hand instead.
+
+
+================================================================================
+4. CHRONOLOGICAL WORK LOG
+================================================================================
+
+PHASE 0 — IDENTIFYING THE STACK
+
+From the page source and network behaviour: Nuxt 3 (/_nuxt/ chunks,
+window.__NUXT__, a __NUXT_DATA__ payload), Directus as the CMS (asset URLs on
+directus.theburnescenter.org), Netlify hosting (.netlify/scripts/rum, a
+data-netlify-rum-site-id attribute), Cloudflare Turnstile for bot checking, and
+Google Analytics (G-GMTLB057VX).
+
+DECISION: build in Nuxt 3, matching the original.
+Reasoning: the deliverable is fidelity to an existing design. Using the same
+framework means their stylesheet, their DOM structure and their scoped-CSS
+patterns transfer directly. A React or plain-HTML rebuild would have meant
+re-deriving every value and would have diverged under interaction.
+
+PHASE 1 — HEADER
+
+Built first, in isolation, and verified before moving on. Established the
+verification method that the rest of the project used (section 2.2).
+
+Two obstacles worth recording because they cost real time:
+
+  (a) The dev server was unreachable in a browser while returning 200 to curl.
+      Cause: Nitro and Vite's HMR socket both wanted port 3100 and ended up
+      splitting address families; whichever lost answered plain HTTP with
+      "426 Upgrade Required". Whether the page loaded depended on whether the
+      browser resolved localhost to 127.0.0.1 or ::1. Fixed by giving HMR its
+      own port and binding Nitro to "::" for dual-stack.
+
+  (b) After that, the page loaded in Edge but not Chrome or Firefox. That
+      pattern is diagnostic: Edge is Chromium like Chrome, so it was not an
+      engine problem — it was a setting present in Chrome and Firefox and absent
+      in Edge. HTTPS-only mode, which silently rewrote localhost to https and
+      broke the connection against a dev server with no certificate.
+
+I supplied a "save page as" archive of the original, which turned out to contain
+the real wordmark SVGs, all 14 series icons, AND the original's four
+stylesheets. That archive is why the CSS could be used verbatim rather than
+transcribed.
+
+DECISION: use the original's register.css VERBATIM, only stripping the Vue scope
+attribute.
+Reasoning: their source order puts some base rules AFTER their own @media
+overrides, so .registration-form-inline-container keeps padding:2rem at mobile
+widths instead of the 1.25rem the media query asks for. Hand-authoring the rules
+would have silently "fixed" that quirk and stopped matching. The file carries a
+comment saying not to reorder or tidy it.
+
+PHASE 2 — REGISTRATION DETAILS CARD
+
+Built from the extracted CSS. Hash-verified.
+
+Then I noticed the real form showed fields mine did not, which led to the
+conditional-field investigation described in 2.3.
+
+PHASE 3 — EVENT SERIES LIST
+
+The 14 checkbox rows. All 14 icons were verified md5-identical to the CDN's
+?width=50 responses, so serving them locally is pixel-identical while removing
+14 third-party requests.
+
+The behaviour of the "SELECT ALL SERIES" button was read from source: its label
+toggles to "Unselect all series" once everything is selected. That is not
+visible in the static HTML.
+
+PHASE 4 — ACTION ROW AND THE NEW FIELD
+
+The Register button, the hidden Turnstile mount point, and the honeypot,
+reproduced faithfully.
+
+Then the actual feature. FIRST ATTEMPT REJECTED — I said it looked out of place
+and was not even aligned. Measurement confirmed five defects:
+
+    label sat 4px above the checkbox and hint (vertical centres 426.6 vs 430.6)
+    checkbox was 18px where the page's other checkboxes are 20px
+    label weight 400 where the series titles are 500
+    ran on as one 672px line inside a 736px container
+    the hint colour failed WCAG AA at 2.42:1 (needs 4.5:1)
+
+The 4px shift was caused by .form-group label { margin-bottom:.5rem } —
+align-items:center was centring a box 8px taller than its own text.
+
+DECISION for the rebuild: do not invent a pattern, and do not borrow a generic
+one — match the nearest sibling component. On this screen that is the event
+series list, so the opt-in card takes its vocabulary wholesale: 20x20 checkbox
+with accent-color #06c, 1rem gap, 16px/500/#1a1a1a title, 6px radius, #e2e8f0
+border, #f7fafc to #edf2f7 on hover. It sits at exactly the same left edge and
+width (32px / 736px) as the email input and every series row.
+
+Result: alignment off by 0px, and contrast raised from 2.42:1 to 7.18:1.
+
+DECISION: deviate from the site's own .question-hint colour.
+#9ca3af fails AA on that card. #4a5568 is ALSO one of the site's own
+secondary-text colours (used by .registration-details-header .form-description)
+and measures 7.18:1, so the palette stays native while the text becomes legible.
+Contrast ratios were computed, not estimated.
+
+PHASE 5 — FOOTER
+
+The largest single section: mailing banner, logo, links, social icons, subscribe
+form, licence line, and a second partner banner. Hash-matched on the first
+attempt (8,331 bytes), then verified at two more breakpoints.
+
+The loop-back check found one defect: the partner-banner links were missing a
+trailing space in their text content. Vue's whitespace:'condense' silently drops
+a trailing space before a closing tag. The hash payload was exactly 8 bytes
+short — 4 links x 2 banners — which is how it was localised.
+
+Details that only came from reading the live DOM: the licence paragraph has a
+DOUBLE space (the anchor carries its own leading and trailing spaces), the
+mailing heading has THREE spaces between its two spans, and
+.footer-form__title is font-size:0 so the visible gap comes from a margin, not
+from whitespace.
+
+PHASE 6 — BACKEND FUNCTIONALITY
+
+Schema discovery, the payload mapper, the server route, the guards, and the
+tests. Covered in sections 2.1, 3 and 5.
+
+PHASE 7 — DEPLOYMENT
+
+I asked whether Netlify could be used instead of Vercel. Both have first-class
+Nitro presets, so this came down to two concrete points:
+
+  - Vercel enables Deployment Protection on new projects, which puts a login
+    wall in front of anyone opening a preview URL. A prototype link that greets
+    the reviewer with an auth screen is the worst available failure mode.
+    Netlify's password protection is off by default.
+  - Netlify reads .nvmrc; Vercel ignores it and reads engines. Both are present.
+
+DECISION: Netlify.
+Cost of that choice: Netlify's synchronous function timeout is 10s on the free
+tier and cannot be raised there, so the upstream write budget was trimmed from
+6s/9s to 5s per attempt and 8s total, leaving ~2s of margin. On Vercel
+maxDuration:15 had been set instead.
+
+Before the first commit, and again after the push, I verified that .env was not
+staged, that the reference stylesheets were not staged, that node_modules was
+not staged, and that the token value appears in NO file in the repository.
+
+PHASE 8 — THE REAL SUBMISSION
+
+npm run verify first, to confirm create permission without writing. Then one
+submission through the deployed site. Row id=52. Read back and checked:
+newsletter true as a real boolean, consent_at stamped 167ms BEFORE Directus's
+own date_created (proving it came from the server clock, not the client), and 4
+titles aligned with 4 Zoom IDs.
+
+PHASE 9 — POST-SUBMISSION FIXES I ASKED FOR
+
+I noticed the page appeared to do nothing after submitting. Diagnosis: the
+success alert renders at the TOP of the card while the submit button is at the
+BOTTOM, so the page succeeded off-screen.
+
+Fixed: the outcome is scrolled into view and given focus, and the form is
+cleared on success. Two details mattered —
+
+  - The reveal waits two animation frames. A success also resets the form, which
+    unchecks every series and drops the conditional State field, so the page gets
+    SHORTER; scrolling during that reflow targeted a stale offset and landed
+    nowhere near the alert. The first attempt at this fix silently failed and was
+    caught by asserting alertInViewport rather than just that the handler ran.
+  - behavior:'instant', not 'smooth'. The site sets scroll-behavior:smooth
+    globally, and gliding ~2,000px took about a second on its own. Measured
+    time-to-visible went from ~2,500ms to ~1,414ms, the remainder being the
+    network round-trip.
+
+I then queried the validation message. Investigating showed the message I had
+seen was the ORIGINAL site's wording, not ours — but the question exposed a real
+weakness: "Please correct 5 fields and try again" does not say WHICH five, and
+there is deliberately no inline per-field error text (the original layout has
+nowhere to put it without shifting), so the summary is the only place a sighted
+user learns what is wrong.
+
+Fixed: the summary now names the fields. The empty-series check no longer
+short-circuits, because reporting only that hid five other blank fields and
+walked the visitor through one error per click. The series check runs FIRST so it
+is named first — it is the least guessable requirement and the truncated list was
+previously dropping exactly that one.
+
+PHASE 10 — SEO
+
+Lighthouse scored SEO 66. Cause: the noindex directive I had added deliberately,
+so a replica could not surface beside the real InnovateUS page. Lighthouse scores
+any page blocked from indexing as a failure regardless of everything else, so
+that one directive was the entire 34-point gap.
+
+DECISION: make it indexable.
+Reasoning: the score should reflect the page's actual SEO quality. Beyond
+unblocking, I had the title and description rewritten (the original's "Zoom
+Events - InnovateUS" tells a searcher nothing, and a title is not part of the
+visual design), added a self-referencing canonical, modern robots directives,
+Open Graph and Twitter tags, and a sitemap. The README states the trade-off and
+records that noindex would be the correct setting for anything other than an
+assessment artefact.
+
+This also caught a factual error: the README still claimed the site sends
+noindex, which had just become false. A deliverable containing a false statement
+about its own behaviour is worse than the original concern, so it was corrected.
+
+
+================================================================================
+5. TECHNICAL DECISIONS REGISTER
+================================================================================
+
+Each entry: the decision, the alternatives, and why.
+
+--------------------------------------------------------------------------------
+5.1 Submissions go through our own server route, not straight to Directus
+--------------------------------------------------------------------------------
+Alternative: POST from the page directly to the Directus API.
+Rejected because:
+  1. The access token would be in the client bundle, readable by anyone who
+     opens devtools. It is read from runtimeConfig outside the `public` block,
+     which Nuxt keeps server-only. Verified: the browser's config object
+     contains only `public` (empty) and `app` — not the token name, let alone a
+     value.
+  2. Validation could be bypassed entirely. Anyone can POST to the endpoint, and
+     it writes to a shared collection, so the server re-checks everything the
+     form checks — including verifying closed-set answers (country, state, both
+     government answers, series IDs) against the form's OWN option lists. An
+     unrecognised series ID is rejected without echoing the value back.
+  3. consent_at would be client-supplied. A timestamp on a consent record is
+     worthless if the client provides it. It is stamped from the server clock,
+     and the real row proves it: consent_at is 167ms before Directus's own
+     date_created.
+
+--------------------------------------------------------------------------------
+5.2 Retry only when it is provable that nothing was written
+--------------------------------------------------------------------------------
+Alternative considered and rejected: retry on any failure, which is the usual
+default.
+Whitelist, not blacklist: retry only on connection error codes that prove the
+request never arrived. Anything unrecognised is treated as ambiguous and never
+retried. A TIMEOUT IS ALSO NEVER RETRIED, because it is ambiguous by definition
+— Directus may have committed the row before we stopped waiting. It surfaces as
+an upstream 504, not a connection error. There is also a 250ms pause before the
+retry, because a connection refused 0ms ago will simply be refused again.
+
+--------------------------------------------------------------------------------
+5.3 Duplicate suppression by fingerprint
+--------------------------------------------------------------------------------
+SHA-256 of lowercased email + sorted series IDs + the newsletter flag, with a
+60-second window. Email is lowercased ONLY here; the stored row keeps the
+visitor's own casing. The newsletter flag is part of the fingerprint because
+re-submitting with the box newly ticked is a different, meaningful intent and
+must not be swallowed.
+Verified: two identical submissions produced ONE upstream POST; the second
+returned the original ID.
+
+--------------------------------------------------------------------------------
+5.4 In-memory guards, with the limitation documented rather than hidden
+--------------------------------------------------------------------------------
+Alternative: Redis or Upstash for shared state.
+Rejected as over-engineering for this scope, and it would add an external
+dependency and another secret. The honest position is stated in the code and the
+README: both guards live in module memory, so they are per-instance and
+effectively inert across serverless instances. They are kept because they cheaply
+remove the failure that actually happens — an impatient double-click, which lands
+on the same warm instance. The correct production fix is a unique index on email
+in Directus: a data-layer constraint, which is not controllable on a shared
+collection.
+
+--------------------------------------------------------------------------------
+5.5 Upstream detail never reaches the visitor
+--------------------------------------------------------------------------------
+An auth failure describes our credentials; a validation failure describes our
+schema. Neither belongs in a browser. The mapping is a pure function and a test
+feeds it a message containing credentials, a token, a collection name and a
+schema hint, then asserts NONE of it appears in the response. Verified in
+production: an upstream 401 produced a generic 502.
+Note: Directus reports a uniqueness clash as 400 RECORD_NOT_UNIQUE, not 409, so
+both are checked. Either way the person is already on file, which from the
+visitor's side is a success.
+
+--------------------------------------------------------------------------------
+5.6 Payload details
+--------------------------------------------------------------------------------
+  - country mirrors the original's own logic: choosing "Outside the United
+    States" and then naming a country submits that TYPED value, not the option
+    label. Read out of their $t() helper.
+  - Display order, not click order, for the joined lists, so the same set of
+    checkboxes always produces the same string. A test asserts [64,62] and
+    [62,64] are identical.
+  - Titles trimmed on the way out. Several source titles carry stray
+    leading/trailing spaces kept deliberately for DOM fidelity; those should not
+    reach a database.
+  - null, not "", for absent optionals. An empty string claims an answer was
+    given.
+  - Casing preserved, whitespace trimmed. This is an intake record; silently
+    lowercasing someone's email alters their own answer. Trade-off: no
+    case-insensitive dedupe at the data layer.
+  - gov_level has a second guard. The form clears it when the answer is not a
+    "Yes…", and the mapper re-checks, so a stale value cannot persist.
+  - newsletter is always a real boolean. It is NOT NULL in Directus, so an
+    absent value is a bug, not an implied false. The server REFUSES to coerce
+    "true", 1, 0 or null.
+
+--------------------------------------------------------------------------------
+5.7 Accessibility deviations from the original
+--------------------------------------------------------------------------------
+Each is behaviour-only and was confirmed against the geometry hashes as
+pixel-neutral.
+
+  - Question IDs sanitised. The original interpolates the question text into the
+    id (id="question-Do you work for…"). WHITESPACE IS INVALID IN AN ID, so its
+    <label for> never resolves and the selects are announced as unlabelled
+    comboboxes.
+  - alt="" on the series row icons. The original repeats the series title in alt
+    while the identical title sits adjacent, so every row is announced twice.
+  - aria-live on the series counter. Ticking a checkbox changes the count;
+    without it there is no feedback.
+  - role="button", aria-haspopup, aria-expanded, aria-controls on the nav
+    dropdown triggers. The original's are bare <div tabindex="0"> exposing no
+    state.
+  - Escape closes a dropdown and returns focus. The original has no Escape
+    handling at all.
+  - role="button" REMOVED from the mailing-list link. It is an <a href> that
+    navigates, and the role made screen readers announce "button" for something
+    that does not behave like one.
+  - aria-invalid bound on form controls, with two helpers: the three inputs that
+    already carry aria-invalid="false" keep it, and controls the original gives
+    none get the attribute ONLY when invalid — so the pristine DOM is unchanged.
+  - :focus-within on the opt-in card rather than only the input. The focusable
+    thing is a 20px checkbox; the affordance a keyboard user needs is the whole
+    control. It reuses the same focus ring as the text inputs so the page has one
+    focus language.
+
+--------------------------------------------------------------------------------
+5.8 Performance
+--------------------------------------------------------------------------------
+  - Fonts: the original chains THREE @import rules inside a <style> block, which
+    serialises the requests and blocks render. Same families and weights,
+    requested once as a preconnected stylesheet. Inria Sans and Inter are
+    dropped — the original requests them but no rule references either.
+  - Series icons served locally, md5-verified identical to the CDN responses:
+    14 fewer third-party requests, zero visual change.
+  - Cache-Control: no-store on /api/**. An intake response is never cacheable.
+
+
+================================================================================
+6. BUGS FOUND, AND WHAT CAUGHT EACH
+================================================================================
+
+This is the most honest evidence about the process, so it is given in full. Note
+how few were found by reading code.
+
+ 1. Dev server unreachable while curl saw 200 — port contention split the
+    address families (426 Upgrade Required).
+    CAUGHT BY: asserting a real status code from the host rather than trusting
+    the preview pane.
+
+ 2. Selects rendered 48.8px instead of 50px, shifting everything below by
+    1.2px. Cause: a GLOBAL select{height:50px} rule; the scoped class sets no
+    height.
+    CAUGHT BY: geometry hash mismatch.
+
+ 3. The select-all button rendered 138.69x34.4 lowercase instead of 178.49x37
+    uppercase. Cause: the global .btn family (text-transform, letter-spacing,
+    line-height, .btn-small{height:37px}) was missing.
+    CAUGHT BY: geometry hash mismatch.
+
+ 4. Partner-banner links missing a trailing space in their text content — Vue's
+    whitespace:'condense' drops it.
+    CAUGHT BY: the hash payload being EXACTLY 8 bytes short (4 links x 2
+    banners).
+
+ 5. FATAL 500: "ref is not defined". A `const ref` inside a function shadowed
+    Vue's ref; Nuxt's auto-import scanner skips injecting `import { ref }` if the
+    module declares that identifier ANYWHERE, even block-scoped, which broke
+    every ref() call in setup. A static code audit had rated this "harmless".
+    CAUGHT BY: actually loading the page.
+
+ 6. The retry could create duplicate rows (section 2.4).
+    CAUGHT BY: adversarial prompting against finished code.
+
+ 7. A worst-case upstream wait of 20s exceeded the platform's 10s function cap,
+    so the platform's 504 would have beaten our handled 503 and shown the
+    visitor infrastructure instead of a designed error.
+    CAUGHT BY: reasoning about the specific deployment target.
+
+ 8. The newsletter checkbox was 4px misaligned, the wrong size, the wrong
+    weight, and failed contrast.
+    CAUGHT BY: my own review of how it looked, then measurement and computed
+    contrast ratios.
+
+ 9. The success-scroll fix silently did nothing — it fired mid-reflow after the
+    form reset shortened the page.
+    CAUGHT BY: asserting alertInViewport rather than just that the handler ran.
+
+10. The outcome took ~2.5s to appear because scroll-behavior:smooth glided
+    2,000px.
+    CAUGHT BY: polling time-to-visible instead of using a fixed wait.
+
+11. setResponseHeader(event,'Retry-After',String(n)) — h3 types that header as a
+    NUMBER and serialises it itself.
+    CAUGHT BY: nuxt typecheck (its only error).
+
+12. A test helper crashed on JSON.stringify(undefined), which returns undefined,
+    not a string.
+    CAUGHT BY: running the suite for the first time.
+
+13. `npx nuxt typecheck | tail` reports TAIL's exit code, so a failing typecheck
+    printed errors under "exit 0" and looked clean.
+    CAUGHT BY: noticing errors printed beneath a success code.
+
+14. A block deletion removed two helper functions along with the intended one.
+    CAUGHT BY: typecheck.
+
+Items 5, 6 and 13 are the ones worth dwelling on: in each case confident
+reasoning was WRONG and only execution revealed it. That is the argument for
+running an AI as an agent that can execute rather than as a text generator.
+
+
+================================================================================
+7. WHAT I DELIBERATELY DID NOT DO
+================================================================================
+
+  - @nuxt/test-utils and a true route-handler end-to-end test. It would have
+    needed Playwright, happy-dom, a peer-version negotiation and a full Nuxt
+    build on every test run. Extracting the transport and error mapping into
+    Nitro-free modules achieved the same coverage for a fraction of the setup.
+    CONSEQUENCE, stated plainly: the handler's own orchestration (honeypot ->
+    rate limit -> validation -> dedupe -> config -> write) is not covered by an
+    automated test. Its pieces are.
+
+  - CI. Recommended and not built. npm test, npm run typecheck and npm run build
+    are not run automatically, and nothing on the repo's front page proves the
+    tests pass. This is an acknowledged gap.
+
+  - A read-back on an ambiguous outcome. If Directus commits but the response is
+    lost, the visitor is told to try again and the fingerprint is not recorded,
+    so a user-initiated retry can duplicate. Recording it on ambiguity would be
+    WORSE — it would report success to someone who is not registered. With read
+    access available, the honest fix is to query by email before advising a
+    retry. Documented, not implemented.
+
+  - CAPTCHA. The original's Turnstile mount point is reproduced in the DOM but
+    the script is not loaded, because it needs their site key. A honeypot is
+    enforced server-side instead.
+
+  - Zoom registration itself. The brief asked for the submission to be stored in
+    Directus.
+
+  - Inline per-field error text, to avoid shifting the cloned layout. Only the
+    summary plus aria-invalid.
+
+  - Test rows in the shared collection (section 3.2). A deliberate deviation
+    from the brief's literal instruction, disclosed in PROCESS.md.
+
+
+================================================================================
+8. HOW TO VERIFY ANY OF THIS
+================================================================================
+
+Without credentials — the full submit path, including every error branch:
+
+    nvm use            # Node 22
+    npm ci
+    npm run stub       # terminal 1: stand-in for Directus, prints every payload
+    npm run dev:stub   # terminal 2: app, loads .env.stub instead of .env
+    # then open http://localhost:3200/register
+
+    npm run stub -- --fail=401      # bad credentials  -> generic 502
+    npm run stub -- --fail=unique   # already on file  -> treated as success
+    npm run stub -- --fail=timeout  # never responds   -> 5s, then 503
+    npm run stub -- --fail=reset    # socket dies      -> no retry
+
+With credentials:
+
+    cp .env.example .env    # paste a token into NUXT_DIRECTUS_TOKEN
+    npm run verify          # confirms create permission — WRITES NOTHING
+    npm run inspect         # prints the collection schema — no secrets
+    npm run dev
+
+Checks:
+
+    npm test           # 130 tests
+    npm run typecheck
+    npm run build
+
+
+================================================================================
+9. SUMMARY OF THE ARGUMENT
+================================================================================
+
+The AI wrote most of the code. That is what the ground rules permit and expect,
+and pretending otherwise would be dishonest. What determined whether the output
+was any good was not the generation, it was:
+
+  - refusing to let it guess when the answer was discoverable (the schema, the
+    existing rows' conventions, the dropdown's event bindings, the conditional
+    fields' triggers)
+  - refusing "looks similar" as an acceptance criterion and replacing it with a
+    hash comparison
+  - rejecting its first attempt three separate times — the newsletter field, the
+    post-submit behaviour, the error messages
+  - asking hostile questions about finished work, which is what found the
+    duplicate-row bug
+  - insisting on running things, which is what found the fatal 500 that a static
+    audit of the same code had called harmless
+
+Fourteen bugs were found. Eleven of them were found by executing something.
+Three of them were mine or the AI's confident reasoning being simply wrong.
+
+================================================================================
+END
+================================================================================

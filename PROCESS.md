@@ -33,6 +33,12 @@ limitation is documented rather than hidden.
 
 *Word count: 287, against a 300-word limit.*
 
+**Full documentation:** the ground rules asked for tooling, prompting, testing
+and decisions to be documented. `PROCESS-FULL.txt` is the complete record —
+chronological work log, decision register with alternatives and reasoning, all
+14 bugs with what caught each, and what was deliberately not done. Everything
+claimed in the paragraph above can be checked against it.
+
 ## Notes not included in the 300 words
 
 **Why made-up-email test runs did not go to Directus.** The brief asks for
