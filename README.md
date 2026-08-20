@@ -1,5 +1,7 @@
 # InnovateUS registration page — replica with newsletter opt-in
 
+[![CI](https://github.com/RutujBhise/innovateus-register-replica/actions/workflows/ci.yml/badge.svg)](https://github.com/RutujBhise/innovateus-register-replica/actions/workflows/ci.yml)
+
 A functional replica of [innovate-us.org/register](https://innovate-us.org/register),
 plus one field the original does not have: a **weekly-newsletter opt-in**.
 Submitting the form writes a row to the Directus `cw_intake` collection, with the

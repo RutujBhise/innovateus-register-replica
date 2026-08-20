@@ -1,0 +1,68 @@
+name: CI
+
+# Runs on a clean Linux machine with a strict install from the lockfile, which
+# is the reviewer's situation rather than the author's. It is there to catch
+# "works on my machine": an uncommitted file, a dependency that only existed in
+# a local node_modules, or something that relies on Windows path behaviour.
+#
+# No secrets are used. Nothing here touches Directus - the token is not in CI
+# on purpose, so a CI run can never write to the shared collection.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: typecheck, test, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Reads .nvmrc, so the pinned version cannot drift from CI.
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      # `ci`, not `install`: fails if package-lock.json and package.json
+      # disagree, rather than quietly resolving something different.
+      - name: Install from lockfile
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      # The standalone scripts are not imported by anything, so nothing else
+      # would notice if one stopped parsing. A broken edit to one of these has
+      # already happened once.
+      - name: Syntax-check standalone scripts
+        run: |
+          node --check scripts/inspect-collection.mjs
+          node --check scripts/verify-write-path.mjs
+          node --check scripts/stub-directus.mjs
+
+      # Guards the one mistake that cannot be undone by a later commit.
+      # Uses `git grep`, which searches only TRACKED content - a plain grep would
+      # match an untracked local .env, and would also flag the deliberate
+      # placeholder in .env.stub.
+      - name: Assert no secrets are committed
+        run: |
+          if git ls-files | grep -qxE '\.env|\.env\.local'; then
+            echo "::error::.env is tracked in git"
+            exit 1
+          fi
+          if git grep -I -n -e 'NUXT_DIRECTUS_TOKEN=[A-Za-z0-9_-]\{16,\}'                -- . ':!.env.example' ':!.env.stub'; then
+            echo "::error::a token-shaped value appears in a tracked file"
+            exit 1
+          fi
+          echo "no secrets found in tracked files"
