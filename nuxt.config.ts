@@ -45,23 +45,16 @@ export default defineNuxtConfig({
   },
 
   /**
-   * Deployment target is Vercel. The preset is deliberately NOT pinned: Nitro
-   * detects `vercel` from VERCEL=1 during the platform build, and leaving it
-   * unset keeps `npm run build && npm run preview` working locally with the
-   * node-server preset. These options are inert under any other preset.
+   * Deployment target is Netlify. The preset is deliberately NOT pinned: Nitro
+   * detects `netlify` from the platform's own env vars during the build, and
+   * leaving it unset keeps `npm run build && npm run preview` working locally
+   * with the node-server preset.
+   *
+   * Netlify's synchronous function timeout is 10s on the free tier and cannot
+   * be raised there, which is why the intake route budgets 8s of its own (see
+   * DEFAULTS in server/utils/directusClient.ts) rather than relying on the
+   * platform to be patient.
    */
-  nitro: {
-    vercel: {
-      functions: {
-        runtime: 'nodejs22.x',
-        // The platform default is 10s, but /api/intake budgets 9s of its own
-        // (6s first attempt plus one retry). Without this the platform's 504
-        // would race - and beat - our own handled 503.
-        maxDuration: 15,
-        memory: 1024
-      }
-    }
-  },
 
   routeRules: {
     '/': { redirect: '/register' },

@@ -82,8 +82,16 @@ export type DirectusWriteOptions = {
 }
 
 export const DEFAULTS = {
-  timeoutMs: 6_000,
-  totalBudgetMs: 9_000,
+  /**
+   * Sized for the deployment target. Netlify's synchronous functions time out
+   * at 10s on the free tier and that ceiling cannot be raised there, so the
+   * whole write - first attempt plus a possible retry - has to finish inside it
+   * with room to spare. Overrunning would hand the visitor the platform's error
+   * page instead of our own handled 503. Directus answers well under a second
+   * in practice, so 5s per attempt is already generous.
+   */
+  timeoutMs: 5_000,
+  totalBudgetMs: 8_000,
   retryDelayMs: 250,
   minRetryTimeoutMs: 1_500
 } as const

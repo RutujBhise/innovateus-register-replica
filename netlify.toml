@@ -1,0 +1,19 @@
+# Netlify build settings.
+#
+# Nitro auto-detects the `netlify` preset from the platform's env vars, so no
+# preset is pinned in nuxt.config.ts - that keeps `npm run build && npm run
+# preview` working locally. This file only pins the things Netlify itself needs.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Netlify also honours .nvmrc; this is belt and braces, and self-documenting.
+  NODE_VERSION = "22"
+
+# Never cache an intake response, at any layer.
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    cache-control = "no-store"
