@@ -5,7 +5,9 @@ plus one field the original does not have: a **weekly-newsletter opt-in**.
 Submitting the form writes a row to the Directus `cw_intake` collection, with the
 consent timestamp stamped server-side.
 
-**Live prototype:** `TODO_DEPLOY_URL/register`
+**Live prototype:** <https://innovateus-register-replica.netlify.app/register>
+
+**Repository:** <https://github.com/RutujBhise/innovateus-register-replica>
 
 ---
 
