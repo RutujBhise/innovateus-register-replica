@@ -139,6 +139,11 @@ const invalidIf = (field: string) => (fieldErrors.value[field] ? 'true' : undefi
  */
 const validateLocally = (): Record<string, string> => {
   const e: Record<string, string> = {}
+  // Checked first so it is named first in the summary. It is the least obvious
+  // requirement on the page, and with several fields blank the truncated list
+  // would otherwise drop exactly the one the visitor could not guess.
+  if (selectedCount.value === 0)
+    e.selectedSeriesIds = 'Select at least one event series.'
   if (!form.email.trim()) e.email = 'Email is required.'
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()))
     e.email = 'Enter a valid email address.'
@@ -146,19 +151,45 @@ const validateLocally = (): Record<string, string> => {
   if (!form.lastName.trim()) e.lastName = 'Last name is required.'
   if (!form.country.trim()) e.country = 'Country is required.'
   if (showState.value && !form.state.trim()) e.state = 'State/Province is required.'
-  if (!form.govAffiliation.trim()) e.govAffiliation = 'This question is required.'
+  // Names the question: as a lone error this message is the whole summary,
+  // and "This question is required" does not say which one.
+  if (!form.govAffiliation.trim())
+    e.govAffiliation = 'Please answer the government organisation question.'
   if (showGovLevel.value && !form.govLevel.trim())
     e.govLevel = 'Level of government is required.'
-  if (selectedCount.value === 0)
-    e.selectedSeriesIds = 'Select at least one event series.'
   return e
 }
 
+/**
+ * Human names for the summary. There is deliberately no inline error text next
+ * to each field - the original design has nowhere to put it without shifting
+ * the layout - so this summary is the only place a sighted user learns which
+ * field is wrong. "Please correct 5 fields" does not tell them that.
+ */
+const FIELD_LABELS: Record<string, string> = {
+  selectedSeriesIds: 'at least one event series',
+  email: 'Email',
+  firstName: 'First Name',
+  lastName: 'Last Name',
+  country: 'Country',
+  state: 'State/Province',
+  nonUsCountry: 'Country (Non US only)',
+  govAffiliation: 'the government organisation question',
+  govLevel: 'Level of government'
+}
+
 const summarise = (errors: Record<string, string>) => {
-  const values = Object.values(errors)
-  return values.length === 1
-    ? values[0]!
-    : `Please correct ${values.length} fields and try again.`
+  const keys = Object.keys(errors)
+  if (keys.length === 0) return 'Please check the form and try again.'
+  // A single problem already has a precise message of its own.
+  if (keys.length === 1) return errors[keys[0]!]!
+
+  const labels = keys.map((k) => FIELD_LABELS[k] ?? k)
+  const list =
+    labels.length <= 4
+      ? `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`
+      : `${labels.slice(0, 3).join(', ')} and ${labels.length - 3} more`
+  return `Please complete ${list}.`
 }
 
 /**
@@ -173,13 +204,9 @@ const onSubmit = async () => {
   submitMessage.value = null
   fieldErrors.value = {}
 
-  // The original alerts on an empty selection before anything else.
-  if (selectedCount.value === 0) {
-    fieldErrors.value = { selectedSeriesIds: 'Select at least one event series.' }
-    fail('Please select at least one event series to register for.')
-    return
-  }
-
+  // Deliberately NOT short-circuiting on the empty-series case the way the
+  // original does. Reporting only that would hide the five other blank fields
+  // and force the visitor through the form one error at a time.
   const local = validateLocally()
   if (Object.keys(local).length > 0) {
     fieldErrors.value = local
