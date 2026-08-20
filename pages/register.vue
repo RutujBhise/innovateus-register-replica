@@ -39,18 +39,65 @@ const submitMessage = ref<{ kind: 'error' | 'success'; text: string } | null>(nu
 /** The original's two sr-only live regions; we actually write to them. */
 const statusRegion = ref<HTMLElement | null>(null)
 const alertRegion = ref<HTMLElement | null>(null)
+/** The visible alert box, so the outcome can be brought into view. */
+const alertBox = ref<HTMLElement | null>(null)
 
 
 const fail = (text: string) => {
   submitMessage.value = { kind: 'error', text }
   if (alertRegion.value) alertRegion.value.textContent = text
   if (statusRegion.value) statusRegion.value.textContent = ''
+  revealOutcome()
+}
+
+/**
+ * The alert renders at the top of the card but the button is at the bottom, so
+ * without this the page succeeds off-screen and looks like nothing happened.
+ * Focus moves too, not just scroll: it puts a keyboard or screen-reader user at
+ * the outcome instead of leaving them at the button they just pressed.
+ */
+const revealOutcome = () => {
+  nextTick(() => {
+    // Two frames, not one. A success also resets the form, which unchecks every
+    // series and removes the conditional State field - the page gets shorter.
+    // Scrolling during that reflow targets a stale offset and lands nowhere
+    // near the alert, so wait for layout to settle first.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const el = alertBox.value
+        if (!el) return
+        // 'instant', not 'smooth'. The site sets scroll-behavior: smooth
+        // globally, and gliding ~2000px back to the top takes about a second -
+        // long enough after a submit that it reads as nothing having happened.
+        // The outcome should be on screen the moment it exists.
+        el.scrollIntoView({ block: 'center', behavior: 'instant' })
+        el.focus({ preventScroll: true })
+      })
+    )
+  })
+}
+
+/** Clears the form after a successful submission so it cannot be sent twice. */
+const resetForm = () => {
+  form.email = ''
+  form.firstName = ''
+  form.lastName = ''
+  form.country = ''
+  form.state = ''
+  form.nonUsCountry = ''
+  form.govAffiliation = ''
+  form.govLevel = ''
+  form.newsletterOptIn = false
+  selectedSeries.value = []
+  fieldErrors.value = {}
 }
 
 const succeed = (text: string) => {
   submitMessage.value = { kind: 'success', text }
   if (statusRegion.value) statusRegion.value.textContent = text
   if (alertRegion.value) alertRegion.value.textContent = ''
+  resetForm()
+  revealOutcome()
 }
 
 /**
@@ -76,40 +123,15 @@ const IDS = {
  */
 const fieldErrors = ref<Record<string, string>>({})
 
-/** Maps an error key to the DOM id of the control it belongs to. */
-const FIELD_TO_ID: Record<string, string> = {
-  email: 'email',
-  firstName: 'first_name',
-  lastName: 'last_name',
-  country: 'country',
-  state: 'state',
-  nonUsCountry: IDS.nonUsCountry,
-  govAffiliation: IDS.govAffiliation,
-  govLevel: IDS.govLevel,
-  selectedSeriesIds: 'series-60'
-}
-
+/** For the three inputs the original already gives an aria-invalid="false". */
 const invalid = (field: string) => (fieldErrors.value[field] ? 'true' : 'false')
 
 /**
- * For controls the original does not give an aria-invalid at all: returns
- * undefined so the attribute is simply absent while the field is valid, keeping
- * the markup identical to the original in the normal case.
+ * For controls the original gives no aria-invalid at all: returns undefined so
+ * the attribute is simply absent while the field is valid, keeping the markup
+ * identical to the original in the normal case.
  */
 const invalidIf = (field: string) => (fieldErrors.value[field] ? 'true' : undefined)
-
-const focusFirstError = () => {
-  const first = Object.keys(fieldErrors.value)[0]
-  if (!first) return
-  const id = FIELD_TO_ID[first]
-  if (!id) return
-  nextTick(() => {
-    const el = document.getElementById(id)
-    if (!el) return
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    ;(el as HTMLElement).focus({ preventScroll: true })
-  })
-}
 
 /**
  * Client-side mirror of the server's rules. The server is the authority - this
@@ -155,7 +177,6 @@ const onSubmit = async () => {
   if (selectedCount.value === 0) {
     fieldErrors.value = { selectedSeriesIds: 'Select at least one event series.' }
     fail('Please select at least one event series to register for.')
-    focusFirstError()
     return
   }
 
@@ -163,7 +184,6 @@ const onSubmit = async () => {
   if (Object.keys(local).length > 0) {
     fieldErrors.value = local
     fail(summarise(local))
-    focusFirstError()
     return
   }
 
@@ -215,7 +235,6 @@ const onSubmit = async () => {
     if (serverErrors && Object.keys(serverErrors).length > 0) {
       fieldErrors.value = serverErrors
       fail(err?.data?.statusMessage || summarise(serverErrors))
-      focusFirstError()
     } else {
       fail(
         err?.data?.statusMessage ||
@@ -324,8 +343,10 @@ const toggleAllSeries = () => {
         -->
         <div
           v-if="submitMessage"
+          ref="alertBox"
           class="alert"
           :class="submitMessage.kind === 'error' ? 'alert-error' : 'alert-success'"
+          tabindex="-1"
         >{{ submitMessage.text }}</div>
 
         <form class="registration-form" novalidate @submit.prevent>
