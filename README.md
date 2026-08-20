@@ -35,7 +35,7 @@ npm run stub -- --fail=403      # no permission    -> generic 502
 npm run stub -- --fail=400      # schema mismatch  -> generic 502
 npm run stub -- --fail=unique   # already on file  -> treated as success
 npm run stub -- --fail=429      # rate limited     -> 503, "try again"
-npm run stub -- --fail=timeout  # never responds   -> 6s, then 503
+npm run stub -- --fail=timeout  # never responds   -> 5s, then 503
 npm run stub -- --fail=reset    # socket dies      -> no retry (see below)
 ```
 
