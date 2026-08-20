@@ -21,7 +21,7 @@
  * Prints no secrets.
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -74,6 +74,16 @@ const fail = (msg) => {
   process.exit(1)
 }
 
+// On a fresh clone there is no .env at all, so say that rather than blaming a
+// single missing variable - the first thing a reviewer runs should not confuse.
+if (!existsSync(join(root, '.env'))) {
+  console.error('')
+  console.error('  FAIL: No .env file found.')
+  console.error('        Add your token:        cp .env.example .env')
+  console.error('        Or use no credentials: npm run stub + npm run dev:stub')
+  console.error('')
+  process.exit(1)
+}
 if (!BASE) fail('NUXT_DIRECTUS_URL is not set in .env')
 if (!TOKEN || TOKEN === 'PASTE_YOUR_ACCESS_TOKEN_HERE')
   fail('NUXT_DIRECTUS_TOKEN is not set in .env')
