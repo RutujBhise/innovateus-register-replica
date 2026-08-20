@@ -189,8 +189,3 @@ Lighthouse's SEO audit, which flags any page blocked from indexing. Indexable wa
 chosen so the audit reflects the page's actual SEO quality. If this were anything
 other than an assessment artefact, `noindex` would be the correct setting.
 
-## Operational note
-
-Rotate the Directus access token after this exercise is assessed. Any token that
-has been on a development machine and in a deployment config has had enough
-exposure to be worth retiring.
