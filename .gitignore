@@ -13,3 +13,6 @@ dist
 # Verbatim copies of the original site's stylesheets, kept locally for
 # verification only. Third-party content with no licence to redistribute.
 _reference/
+
+# Internal handoff/review doc, not a deliverable.
+REVIEW-BRIEF.md
